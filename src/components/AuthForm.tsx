@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Music2, Sparkles } from "lucide-react";
-import { api, Button, Field, inputCls } from "./ui";
+import { api, Button, Field, inputCls, PasswordField } from "./ui";
 
 export default function AuthForm({ mode }: { mode: "login" | "register" }) {
   const router = useRouter();
@@ -116,17 +116,26 @@ export default function AuthForm({ mode }: { mode: "login" | "register" }) {
                 placeholder="tu@correo.com"
               />
             </Field>
-            <Field label="Contraseña" hint={isLogin ? undefined : "Mínimo 6 caracteres"}>
-              <input
-                type="password"
-                className={inputCls}
-                required
-                minLength={isLogin ? undefined : 6}
-                value={form.password}
-                onChange={(e) => setForm({ ...form, password: e.target.value })}
-                placeholder="••••••••"
-              />
-            </Field>
+            <PasswordField
+              label="Contraseña"
+              hint={isLogin ? undefined : "Mínimo 6 caracteres"}
+              required
+              minLength={isLogin ? undefined : 6}
+              autoComplete={isLogin ? "current-password" : "new-password"}
+              value={form.password}
+              onChange={(v) => setForm({ ...form, password: v })}
+            />
+
+            {isLogin && (
+              <div className="text-right">
+                <Link
+                  href="/recuperar"
+                  className="text-sm font-medium text-indigo-600 hover:text-indigo-500"
+                >
+                  ¿Olvidaste tu contraseña?
+                </Link>
+              </div>
+            )}
             {!isLogin && (
               <label className="flex items-start gap-2 text-sm text-slate-600">
                 <input

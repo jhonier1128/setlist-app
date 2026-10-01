@@ -1,5 +1,5 @@
 import { randomBytes } from "crypto";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { and, eq, gt } from "drizzle-orm";
 import { db } from "@/db";
 import { sessions, users } from "@/db/schema";
@@ -13,10 +13,13 @@ export async function createSession(userId: number) {
   const expiresAt = new Date(Date.now() + DAYS * 24 * 60 * 60 * 1000);
   await db.insert(sessions).values({ token, userId, expiresAt });
   const jar = await cookies();
+  const hdrs = await headers();
+  const isHttps =
+    hdrs.get("x-forwarded-proto") === "https" || process.env.NODE_ENV === "production";
   jar.set(COOKIE, token, {
     httpOnly: true,
     sameSite: "lax",
-    secure: false,
+    secure: isHttps,
     path: "/",
     expires: expiresAt,
   });
