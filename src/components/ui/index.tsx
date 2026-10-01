@@ -1,7 +1,6 @@
 'use client'
 
 import React, { forwardRef } from 'react'
-import { View, Text, TextInput, StyleSheet, TouchableOpacity } from 'react-native'
 import { useTheme } from '@/hooks/useTheme'
 
 interface ButtonProps {
