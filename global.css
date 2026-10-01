@@ -1,0 +1,31 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --color-primary: 14 165 233;
+    --color-surface-light: 255 255 255;
+    --color-surface-dark: 26 26 46;
+    --color-background-light: 248 250 252;
+    --color-background-dark: 15 15 26;
+  }
+}
+
+@layer components {
+  .chord-text {
+    @apply font-mono text-chord-lg;
+  }
+  .chord-text-lg {
+    @apply font-mono text-chord-xl;
+  }
+  .chord-text-xl {
+    @apply font-mono text-chord-2xl;
+  }
+  .song-section {
+    @apply mb-4;
+  }
+  .song-section-title {
+    @apply font-bold text-lg mb-2 uppercase tracking-wide;
+  }
+}
