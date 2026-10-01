@@ -47,6 +47,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "db:studio": "npx watermelondb-cli studio",
+    "eas-build-pre-install": "npm install --legacy-peer-deps",
     "build:android": "eas build --platform android --profile preview",
     "build:ios": "eas build --platform ios --profile preview",
     "build:production": "eas build --platform all --profile production",
