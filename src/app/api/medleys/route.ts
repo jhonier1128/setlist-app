@@ -3,6 +3,7 @@ import { medleys } from "@/db/schema";
 import { getCurrentUser, unauthorized } from "@/lib/auth";
 import { isValidKey } from "@/lib/music";
 import { getMedleys } from "@/lib/queries";
+import { ensureSchema, friendlyDbError } from "@/lib/ensureSchema";
 
 export const dynamic = "force-dynamic";
 
@@ -15,6 +16,12 @@ export async function GET() {
 export async function POST(req: Request) {
   const user = await getCurrentUser();
   if (!user) return unauthorized();
+  try {
+    await ensureSchema();
+  } catch (err) {
+    console.error("[api/ensureSchema]", err);
+    return Response.json({ error: friendlyDbError(err) }, { status: 500 });
+  }
   const body = await req.json().catch(() => null);
   const name = String(body?.name ?? "").trim();
   const voice = body?.voice === "female" ? "female" : "male";

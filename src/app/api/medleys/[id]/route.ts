@@ -2,6 +2,7 @@ import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { medleySongs, medleys, songs } from "@/db/schema";
 import { getCurrentUser, unauthorized } from "@/lib/auth";
+import { ensureSchema, friendlyDbError } from "@/lib/ensureSchema";
 
 export const dynamic = "force-dynamic";
 
@@ -86,6 +87,12 @@ export async function DELETE(_req: Request, ctx: Ctx) {
   const user = await getCurrentUser();
   if (!user) return unauthorized();
   const id = Number((await ctx.params).id);
+  try {
+    await ensureSchema();
+  } catch (err) {
+    console.error("[api/ensureSchema]", err);
+    return Response.json({ error: friendlyDbError(err) }, { status: 500 });
+  }
   await db.delete(medleys).where(and(eq(medleys.id, id), eq(medleys.userId, user.id)));
   return Response.json({ ok: true });
 }

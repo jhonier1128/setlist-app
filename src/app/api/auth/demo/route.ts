@@ -1,16 +1,16 @@
 import { createSession } from "@/lib/auth";
-import { dbError } from "@/lib/errors";
 import { ensureDemoUser } from "@/lib/seed";
+import { ensureSchema, friendlyDbError } from "@/lib/ensureSchema";
 
 export const dynamic = "force-dynamic";
 
 export async function POST() {
   try {
+    await ensureSchema();
     const id = await ensureDemoUser();
     await createSession(id);
     return Response.json({ ok: true });
-  } catch (error) {
-    const e = dbError(error);
-    return Response.json({ error: e.error }, { status: e.status });
+  } catch (err) {
+    return Response.json({ error: friendlyDbError(err) }, { status: 500 });
   }
 }

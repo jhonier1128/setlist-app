@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
-import { AlertCircle, CheckCircle2, Eye, EyeOff, Loader2, X } from "lucide-react";
+import { AlertCircle, CheckCircle2, Loader2, X } from "lucide-react";
 
 /* ---------- API helper ---------- */
 export async function api<T = unknown>(url: string, method = "GET", body?: unknown): Promise<T> {
@@ -13,17 +13,26 @@ export async function api<T = unknown>(url: string, method = "GET", body?: unkno
       body: body !== undefined ? JSON.stringify(body) : undefined,
     });
   } catch {
-    throw new Error("No se pudo conectar con el servidor. Revisa tu conexión o el estado del despliegue.");
+    throw new Error("Sin conexión con el servidor. Revisa tu internet e intenta de nuevo.");
   }
-  const data = await res.json().catch(() => ({}));
+  const raw = await res.text();
+  let data: { error?: string } = {};
+  if (raw) {
+    try {
+      data = JSON.parse(raw) as { error?: string };
+    } catch {
+      data = {};
+    }
+  }
   if (!res.ok) {
-    const message = (data as { error?: string }).error;
-    throw new Error(
-      message ||
-        (res.status >= 500
-          ? "Error del servidor. Revisa la configuración de DATABASE_URL en Vercel."
-          : "Algo salió mal"),
-    );
+    if (data.error) throw new Error(data.error);
+    if (res.status === 401) throw new Error("Tu sesión expiró. Vuelve a ingresar.");
+    if (res.status === 404) throw new Error("No se encontró la ruta del servidor.");
+    if (res.status >= 500)
+      throw new Error(
+        `Error del servidor (${res.status}). Abre /diagnostico para ver la causa exacta e intenta de nuevo.`,
+      );
+    throw new Error(`Error ${res.status}. Intenta de nuevo.`);
   }
   return data as T;
 }
@@ -137,59 +146,6 @@ export function Button({
 
 export const inputCls =
   "w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 outline-none transition focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100";
-
-/** Campo de contraseña con botón para mostrar u ocultar el texto. */
-export function PasswordField({
-  label,
-  value,
-  onChange,
-  hint,
-  required,
-  minLength,
-  autoComplete,
-  placeholder = "••••••••",
-  autoFocus,
-}: {
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-  hint?: string;
-  required?: boolean;
-  minLength?: number;
-  autoComplete?: string;
-  placeholder?: string;
-  autoFocus?: boolean;
-}) {
-  const [visible, setVisible] = useState(false);
-  return (
-    <label className="block">
-      <span className="mb-1.5 block text-sm font-medium text-slate-700">{label}</span>
-      <div className="relative">
-        <input
-          type={visible ? "text" : "password"}
-          className={inputCls + " pr-11"}
-          value={value}
-          required={required}
-          minLength={minLength}
-          autoComplete={autoComplete}
-          placeholder={placeholder}
-          autoFocus={autoFocus}
-          onChange={(e) => onChange(e.target.value)}
-        />
-        <button
-          type="button"
-          onClick={() => setVisible((v) => !v)}
-          aria-label={visible ? "Ocultar contraseña" : "Mostrar contraseña"}
-          title={visible ? "Ocultar contraseña" : "Mostrar contraseña"}
-          className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
-        >
-          {visible ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-        </button>
-      </div>
-      {hint && <span className="mt-1 block text-xs text-slate-500">{hint}</span>}
-    </label>
-  );
-}
 
 export function Field({ label, children, hint }: { label: string; children: ReactNode; hint?: string }) {
   return (

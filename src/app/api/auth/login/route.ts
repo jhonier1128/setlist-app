@@ -3,27 +3,34 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { users } from "@/db/schema";
 import { createSession } from "@/lib/auth";
-import { dbError } from "@/lib/errors";
 import { DEMO_EMAIL, ensureDemoUser } from "@/lib/seed";
+import { ensureSchema, friendlyDbError } from "@/lib/ensureSchema";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(req: Request) {
   try {
-    const body = await req.json().catch(() => null);
-    const email = String(body?.email ?? "").trim().toLowerCase();
-    const password = String(body?.password ?? "");
-    if (!email || !password)
-      return Response.json({ error: "Escribe tu correo y contraseña" }, { status: 400 });
+    await ensureSchema();
+  } catch (err) {
+    console.error("[login/ensureSchema]", err);
+    return Response.json({ error: friendlyDbError(err) }, { status: 500 });
+  }
+
+  const body = await req.json().catch(() => null);
+  const email = String(body?.email ?? "").trim().toLowerCase();
+  const password = String(body?.password ?? "");
+
+  try {
     if (email === DEMO_EMAIL) await ensureDemoUser();
     const rows = await db.select().from(users).where(eq(users.email, email)).limit(1);
     const u = rows[0];
-    if (!u || !(await bcrypt.compare(password, u.passwordHash)))
-      return Response.json({ error: "Correo o contraseña incorrectos" }, { status: 401 });
+    if (!u) return Response.json({ error: "Ese correo no está registrado" }, { status: 401 });
+    const ok = await bcrypt.compare(password, u.passwordHash);
+    if (!ok) return Response.json({ error: "Correo o contraseña incorrectos" }, { status: 401 });
     await createSession(u.id);
     return Response.json({ ok: true });
-  } catch (error) {
-    const e = dbError(error);
-    return Response.json({ error: e.error }, { status: e.status });
+  } catch (err) {
+    console.error("[login]", err);
+    return Response.json({ error: friendlyDbError(err) }, { status: 500 });
   }
 }

@@ -2,6 +2,7 @@ import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { songs } from "@/db/schema";
 import { getCurrentUser, unauthorized } from "@/lib/auth";
+import { ensureSchema, friendlyDbError } from "@/lib/ensureSchema";
 import { transposeKey } from "@/lib/music";
 import { toSongDTO } from "@/lib/queries";
 import { parseSongBody } from "@/lib/songInput";
@@ -14,6 +15,12 @@ export async function PATCH(req: Request, ctx: Ctx) {
   const user = await getCurrentUser();
   if (!user) return unauthorized();
   const id = Number((await ctx.params).id);
+  try {
+    await ensureSchema();
+  } catch (err) {
+    console.error("[api/ensureSchema]", err);
+    return Response.json({ error: friendlyDbError(err) }, { status: 500 });
+  }
   const body = await req.json().catch(() => null);
 
   const found = await db
@@ -45,6 +52,12 @@ export async function DELETE(_req: Request, ctx: Ctx) {
   const user = await getCurrentUser();
   if (!user) return unauthorized();
   const id = Number((await ctx.params).id);
+  try {
+    await ensureSchema();
+  } catch (err) {
+    console.error("[api/ensureSchema]", err);
+    return Response.json({ error: friendlyDbError(err) }, { status: 500 });
+  }
   await db.delete(songs).where(and(eq(songs.id, id), eq(songs.userId, user.id)));
   return Response.json({ ok: true });
 }

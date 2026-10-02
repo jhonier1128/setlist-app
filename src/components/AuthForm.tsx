@@ -4,13 +4,15 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Music2, Sparkles } from "lucide-react";
-import { api, Button, Field, inputCls, PasswordField } from "./ui";
+import PasswordInput from "./PasswordInput";
+import { api, Button, Field, inputCls } from "./ui";
 
 export default function AuthForm({ mode }: { mode: "login" | "register" }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [demoLoading, setDemoLoading] = useState(false);
   const [error, setError] = useState("");
+  const [warning, setWarning] = useState("");
   const [form, setForm] = useState({ name: "", email: "", password: "", role: "pianista", withDemo: true });
   const isLogin = mode === "login";
 
@@ -19,7 +21,12 @@ export default function AuthForm({ mode }: { mode: "login" | "register" }) {
     setError("");
     setLoading(true);
     try {
-      await api(isLogin ? "/api/auth/login" : "/api/auth/register", "POST", form);
+      const res = await api<{ ok: true; warning?: string }>(
+        isLogin ? "/api/auth/login" : "/api/auth/register",
+        "POST",
+        form,
+      );
+      if (res?.warning) setWarning(res.warning);
       router.push("/dashboard");
       router.refresh();
     } catch (err) {
@@ -116,26 +123,15 @@ export default function AuthForm({ mode }: { mode: "login" | "register" }) {
                 placeholder="tu@correo.com"
               />
             </Field>
-            <PasswordField
-              label="Contraseña"
-              hint={isLogin ? undefined : "Mínimo 6 caracteres"}
-              required
-              minLength={isLogin ? undefined : 6}
-              autoComplete={isLogin ? "current-password" : "new-password"}
-              value={form.password}
-              onChange={(v) => setForm({ ...form, password: v })}
-            />
-
-            {isLogin && (
-              <div className="text-right">
-                <Link
-                  href="/recuperar"
-                  className="text-sm font-medium text-indigo-600 hover:text-indigo-500"
-                >
-                  ¿Olvidaste tu contraseña?
-                </Link>
-              </div>
-            )}
+            <Field label="Contraseña" hint={isLogin ? undefined : "Mínimo 6 caracteres"}>
+              <PasswordInput
+                value={form.password}
+                onChange={(v) => setForm({ ...form, password: v })}
+                required
+                minLength={isLogin ? undefined : 6}
+                autoComplete={isLogin ? "current-password" : "new-password"}
+              />
+            </Field>
             {!isLogin && (
               <label className="flex items-start gap-2 text-sm text-slate-600">
                 <input
@@ -150,9 +146,24 @@ export default function AuthForm({ mode }: { mode: "login" | "register" }) {
             {error && (
               <p className="rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-700 ring-1 ring-rose-200">{error}</p>
             )}
+            {warning && (
+              <p className="rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-800 ring-1 ring-amber-200">
+                {warning}
+              </p>
+            )}
             <Button type="submit" loading={loading} className="w-full">
               {isLogin ? "Ingresar" : "Crear cuenta"}
             </Button>
+            {isLogin && (
+              <p className="text-center">
+                <Link
+                  href="/olvide-contrasena"
+                  className="text-sm font-medium text-indigo-600 hover:text-indigo-500"
+                >
+                  ¿Olvidaste tu contraseña?
+                </Link>
+              </p>
+            )}
           </form>
 
           {isLogin && (

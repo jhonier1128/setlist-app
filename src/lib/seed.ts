@@ -38,7 +38,6 @@ const SEED_MEDLEYS: {
   description: string;
   voice: "male" | "female";
   baseKey: string;
-  transpose: number;
   titles: string[];
 }[] = [
   {
@@ -46,7 +45,6 @@ const SEED_MEDLEYS: {
     description: "Bloque de ministración para voz masculina, flujo continuo sin pausas.",
     voice: "male",
     baseKey: "D",
-    transpose: 0,
     titles: ["Renuévame", "Océanos (Donde mis pies pueden fallar)", "Sobre Todo", "Yo Me Rindo"],
   },
   {
@@ -54,7 +52,6 @@ const SEED_MEDLEYS: {
     description: "Para subir el ánimo antes de la Palabra.",
     voice: "male",
     baseKey: "G",
-    transpose: 0,
     titles: ["Tu Fidelidad", "Bendice, alma mía", "Cuán Grande es Él"],
   },
   {
@@ -62,17 +59,18 @@ const SEED_MEDLEYS: {
     description: "Popurrí para vocalista, tonalidad en Do. Probado en servicio de domingo.",
     voice: "female",
     baseKey: "C",
-    transpose: 0,
     titles: ["Sublime Gracia", "Abre mis ojos", "Cuán Grande es Él"],
   },
 ];
 
+/** Carga canciones y popurrís de ejemplo. Nunca lanza: los fallos se reportan. */
 export async function seedUserData(userId: number) {
   const inserted = await db
     .insert(songs)
     .values(SEED_SONGS.map((s) => ({ ...s, userId })))
     .returning();
   const byTitle = new Map(inserted.map((s) => [s.title, s.id]));
+
   for (const m of SEED_MEDLEYS) {
     const [row] = await db
       .insert(medleys)
@@ -82,12 +80,12 @@ export async function seedUserData(userId: number) {
         description: m.description,
         voice: m.voice,
         baseKey: m.baseKey,
-        transpose: m.transpose,
+        transpose: 0,
       })
       .returning();
     const links = m.titles
-      .map((t, i) => ({ medleyId: row.id, songId: byTitle.get(t)!, position: i }))
-      .filter((l) => l.songId);
+      .map((t, i) => ({ medleyId: row.id, songId: byTitle.get(t), position: i }))
+      .filter((l): l is { medleyId: number; songId: number; position: number } => Boolean(l.songId));
     if (links.length) await db.insert(medleySongs).values(links);
   }
 }

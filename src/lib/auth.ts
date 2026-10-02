@@ -13,13 +13,11 @@ export async function createSession(userId: number) {
   const expiresAt = new Date(Date.now() + DAYS * 24 * 60 * 60 * 1000);
   await db.insert(sessions).values({ token, userId, expiresAt });
   const jar = await cookies();
-  const hdrs = await headers();
-  const isHttps =
-    hdrs.get("x-forwarded-proto") === "https" || process.env.NODE_ENV === "production";
+  const proto = (await headers()).get("x-forwarded-proto") ?? "http";
   jar.set(COOKIE, token, {
     httpOnly: true,
     sameSite: "lax",
-    secure: isHttps,
+    secure: proto === "https",
     path: "/",
     expires: expiresAt,
   });

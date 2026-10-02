@@ -1,56 +1,83 @@
 import { randomBytes } from "crypto";
-import { and, eq, isNull } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { db } from "@/db";
-import { passwordResets, users } from "@/db/schema";
-import { dbError } from "@/lib/errors";
-import { mailStatus, sendPasswordResetEmail } from "@/lib/mailer";
-import { hashToken, RESET_EXPIRES_MS } from "@/lib/reset";
+import { passwordResetTokens, users } from "@/db/schema";
+import { ensureSchema, friendlyDbError } from "@/lib/ensureSchema";
+import { mailStatus, sendResetEmail } from "@/lib/mailer";
 
 export const dynamic = "force-dynamic";
 
+const MINUTES = 60;
+
+function baseUrl(req: Request): string {
+  const envUrl = process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL;
+  if (envUrl) return envUrl.replace(/\/$/, "");
+  const proto = req.headers.get("x-forwarded-proto") ?? "http";
+  const host = req.headers.get("x-forwarded-host") ?? req.headers.get("host");
+  if (host) return `${proto}://${host}`;
+  return new URL(req.url).origin;
+}
+
 export async function POST(req: Request) {
   try {
-    const body = await req.json().catch(() => null);
-    const email = String(body?.email ?? "").trim().toLowerCase();
+    await ensureSchema();
+  } catch (err) {
+    console.error("[forgot/ensureSchema]", err);
+    return Response.json({ error: friendlyDbError(err) }, { status: 500 });
+  }
 
-    if (!/^\S+@\S+\.\S+$/.test(email))
-      return Response.json({ error: "Escribe un correo válido" }, { status: 400 });
+  const body = await req.json().catch(() => null);
+  const email = String(body?.email ?? "").trim().toLowerCase();
+  if (!/^\S+@\S+\.\S+$/.test(email))
+    return Response.json({ error: "Escribe un correo válido" }, { status: 400 });
 
+  const status = mailStatus();
+
+  try {
     const rows = await db.select().from(users).where(eq(users.email, email)).limit(1);
     const user = rows[0];
 
-    // Respuesta idéntica exista o no la cuenta, para no revelar quién está registrado.
-    const generic = {
-      ok: true,
-      message:
-        "Si el correo está registrado, recibirás un mensaje con el enlace para restablecer tu contraseña.",
-      mail: mailStatus(),
-    };
-
-    if (!user) return Response.json(generic);
-
-    // Invalida solicitudes anteriores pendientes de este usuario.
-    await db
-      .update(passwordResets)
-      .set({ usedAt: new Date() })
-      .where(and(eq(passwordResets.userId, user.id), isNull(passwordResets.usedAt)));
+    // No revelamos si el correo existe o no (evita enumerar cuentas).
+    if (!user) {
+      return Response.json({
+        ok: true,
+        delivered: false,
+        provider: status.provider,
+        message:
+          "Si ese correo está registrado, te enviamos un enlace para crear una nueva contraseña. Revisa también tu carpeta de spam.",
+      });
+    }
 
     const token = randomBytes(32).toString("hex");
-    await db.insert(passwordResets).values({
-      tokenHash: hashToken(token),
-      userId: user.id,
-      expiresAt: new Date(Date.now() + RESET_EXPIRES_MS),
-    });
+    const expiresAt = new Date(Date.now() + MINUTES * 60 * 1000);
+    await db.insert(passwordResetTokens).values({ token, userId: user.id, expiresAt });
 
-    const result = await sendPasswordResetEmail(user.email, user.name, token);
+    const link = `${baseUrl(req)}/restablecer?token=${token}`;
+    const mail = await sendResetEmail(email, link, MINUTES);
 
-    // Solo en desarrollo se devuelve el enlace para poder probarlo sin SMTP.
-    if (!result.sent && process.env.NODE_ENV !== "production") {
-      return Response.json({ ...generic, previewLink: result.url });
+    if (mail.delivered) {
+      return Response.json({
+        ok: true,
+        delivered: true,
+        provider: mail.provider,
+        message: `Enviamos un enlace a ${email} para crear una nueva contraseña. Revisa tu bandeja y la carpeta de spam.`,
+      });
     }
-    return Response.json(generic);
-  } catch (error) {
-    const e = dbError(error);
-    return Response.json({ error: e.error }, { status: e.status });
+
+    // Sin proveedor de correo (o falló el envío): mostramos el enlace en pantalla.
+    console.error("[forgot/mail]", mail.error);
+    return Response.json({
+      ok: true,
+      delivered: false,
+      provider: mail.provider,
+      resetUrl: link,
+      message:
+        mail.provider === "ninguno"
+          ? "El correo no está configurado en el servidor, así que abre tu enlace de recuperación aquí:"
+          : "No pudimos enviar el correo, así que abre tu enlace de recuperación aquí:",
+    });
+  } catch (err) {
+    console.error("[forgot]", err);
+    return Response.json({ error: friendlyDbError(err) }, { status: 500 });
   }
 }

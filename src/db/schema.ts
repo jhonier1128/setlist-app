@@ -25,6 +25,16 @@ export const sessions = pgTable("sessions", {
   expiresAt: timestamp("expires_at").notNull(),
 });
 
+export const passwordResetTokens = pgTable("password_reset_tokens", {
+  token: text("token").primaryKey(),
+  userId: integer("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  expiresAt: timestamp("expires_at").notNull(),
+  usedAt: timestamp("used_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
 export const songs = pgTable(
   "songs",
   {
@@ -59,20 +69,6 @@ export const medleys = pgTable(
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
   (t) => [index("medleys_user_idx").on(t.userId)],
-);
-
-export const passwordResets = pgTable(
-  "password_resets",
-  {
-    tokenHash: text("token_hash").primaryKey(),
-    userId: integer("user_id")
-      .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
-    expiresAt: timestamp("expires_at").notNull(),
-    usedAt: timestamp("used_at"),
-    createdAt: timestamp("created_at").notNull().defaultNow(),
-  },
-  (t) => [index("password_resets_user_idx").on(t.userId)],
 );
 
 export const medleySongs = pgTable(

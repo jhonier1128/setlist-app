@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { medleySongs, medleys, songs } from "@/db/schema";
 import type { MedleyDTO, SongDTO } from "./types";
 import type { Voice } from "./music";
+import { ensureSchema } from "./ensureSchema";
 
 export function toSongDTO(s: typeof songs.$inferSelect): SongDTO {
   return {
@@ -18,11 +19,13 @@ export function toSongDTO(s: typeof songs.$inferSelect): SongDTO {
 }
 
 export async function getSongs(userId: number): Promise<SongDTO[]> {
+  await ensureSchema();
   const rows = await db.select().from(songs).where(eq(songs.userId, userId)).orderBy(asc(songs.title));
   return rows.map(toSongDTO);
 }
 
 export async function getMedleys(userId: number): Promise<MedleyDTO[]> {
+  await ensureSchema();
   const ms = await db.select().from(medleys).where(eq(medleys.userId, userId)).orderBy(asc(medleys.name));
   if (ms.length === 0) return [];
   const links = await db
