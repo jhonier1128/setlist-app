@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useState } from "react";
 import { CheckCircle2, KeyRound, Mail, Music2, Send } from "lucide-react";
-import { api, Button, Field, inputCls, PasswordField } from "./ui";
+import { api, Button, Field, inputCls } from "./ui";
+import { PasswordInput as PasswordField } from "./PasswordInput";
 
 export default function RecoverForm({ token }: { token: string | null }) {
   const [mode, setMode] = useState<"request" | "reset">(token ? "reset" : "request");
